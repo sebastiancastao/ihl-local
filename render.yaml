@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: BOL-Extractor-Flask-App-Server
+    env: python
+    buildCommand: apt-get update -y && apt-get install -y poppler-utils && pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers=2 --timeout=120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: OPENAI_API_KEY
+        sync: false
