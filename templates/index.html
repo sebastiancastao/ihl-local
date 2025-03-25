@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BOL Processor</title>
+    <title>IHL Template Processor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -13,7 +13,7 @@
       <div class="max-w-3xl mx-auto">
         <!-- Header -->
         <div class="text-center mb-8">
-          <h1 class="text-3xl font-bold text-gray-900 mb-2">BOL Processor</h1>
+          <h1 class="text-3xl font-bold text-gray-900 mb-2">IHL Template Processor</h1>
           <p class="text-gray-600 mb-6">
             Follow the steps below to process your documents
           </p>
@@ -23,106 +23,58 @@
             <div class="flex items-center">
               <div
                 class="w-10 h-10 rounded-full flex items-center justify-center border-2"
-                :class="[currentStep === 1 ? 'border-blue-500 bg-blue-50 text-blue-500' : isPdfComplete ? 'border-green-500 bg-green-50 text-green-500' : 'border-gray-300 text-gray-500']"
+                :class="[currentStep === 1 ? 'border-blue-500 bg-blue-50 text-blue-500' : isFirstCsvComplete ? 'border-green-500 bg-green-50 text-green-500' : 'border-gray-300 text-gray-500']"
               >
                 <span class="text-lg font-semibold">1</span>
               </div>
               <span
                 class="ml-2 font-medium"
-                :class="[currentStep === 1 ? 'text-blue-500' : isPdfComplete ? 'text-green-500' : 'text-gray-500']"
-                >PDF</span
+                :class="[currentStep === 1 ? 'text-blue-500' : isFirstCsvComplete ? 'text-green-500' : 'text-gray-500']"
+                >CSV 1</span
               >
             </div>
             <div
               class="w-24 h-0.5"
-              :class="[isPdfComplete ? 'bg-green-500' : 'bg-gray-300']"
+              :class="[isFirstCsvComplete ? 'bg-green-500' : 'bg-gray-300']"
             ></div>
             <div class="flex items-center">
               <div
                 class="w-10 h-10 rounded-full flex items-center justify-center border-2"
-                :class="[currentStep === 2 ? 'border-blue-500 bg-blue-50 text-blue-500' : isCsvComplete ? 'border-green-500 bg-green-50 text-green-500' : 'border-gray-300 text-gray-500']"
+                :class="[currentStep === 2 ? 'border-blue-500 bg-blue-50 text-blue-500' : isSecondCsvComplete ? 'border-green-500 bg-green-50 text-green-500' : 'border-gray-300 text-gray-500']"
               >
                 <span class="text-lg font-semibold">2</span>
               </div>
               <span
                 class="ml-2 font-medium"
-                :class="[currentStep === 2 ? 'text-blue-500' : isCsvComplete ? 'text-green-500' : 'text-gray-500']"
-                >CSV</span
+                :class="[currentStep === 2 ? 'text-blue-500' : isSecondCsvComplete ? 'text-green-500' : 'text-gray-500']"
+                >CSV 2</span
               >
             </div>
           </div>
         </div>
 
-        <!-- Step 1: PDF Upload -->
+        <!-- Step 1: First CSV Upload -->
         <div
           v-show="currentStep === 1"
           class="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300"
         >
           <h2 class="text-xl font-semibold mb-4 text-gray-800">
-            Step 1: Upload BOL PDF
+            Step 1: Upload Sensual UOM Excel
           </h2>
-          <div
-            v-if="!isProcessing && !isPdfComplete"
-            class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors duration-200"
-            @dragover.prevent
-            @drop.prevent="handleFileDrop"
-          >
-            <input
-              type="file"
-              ref="fileInput"
-              @change="handleFileSelect"
-              accept=".pdf"
-              class="hidden"
-            />
-
-            <div class="mb-4">
-              <svg
-                class="mx-auto h-12 w-12 text-gray-400"
-                stroke="currentColor"
-                fill="none"
-                viewBox="0 0 48 48"
-              >
-                <path
-                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </div>
-
-            <div class="text-gray-600 mb-4">
-              <button
-                @click="$refs.fileInput.click()"
-                class="text-blue-500 hover:text-blue-600 font-medium"
-              >
-                Choose a file
-              </button>
-              or drag and drop
-            </div>
-
-            <div class="text-sm text-gray-500">PDF up to 16MB</div>
+          <div class="mb-4 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+            <p class="font-medium mb-1">Required Format:</p>
+            <p>Upload a CSV/Excel file with these columns: <span class="font-medium">Item #, Weight, Cube, Length, Width, Height</span></p>
           </div>
-        </div>
-
-        <!-- Step 2: CSV Upload -->
-        <div
-          v-show="currentStep === 2"
-          class="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300"
-        >
-          <h2 class="text-xl font-semibold mb-4 text-gray-800">
-            Step 2: Upload CSV/Excel Data
-          </h2>
           <div
-            v-if="!isProcessing && !isCsvComplete"
+            v-if="!isProcessing && !isFirstCsvComplete"
             class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors duration-200"
             @dragover.prevent
-            @drop.prevent="handleCsvDrop"
+            @drop.prevent="handleFirstCsvDrop"
           >
             <input
               type="file"
-              ref="csvInput"
-              @change="handleCsvSelect"
+              ref="firstCsvInput"
+              @change="handleFirstCsvSelect"
               accept=".csv,.xlsx,.xls"
               class="hidden"
             />
@@ -145,7 +97,62 @@
 
             <div class="text-gray-600 mb-4">
               <button
-                @click="$refs.csvInput.click()"
+                @click="$refs.firstCsvInput.click()"
+                class="text-blue-500 hover:text-blue-600 font-medium"
+              >
+                Choose CSV/Excel
+              </button>
+              or drag and drop
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Second CSV Upload -->
+        <div
+          v-show="currentStep === 2"
+          class="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300"
+        >
+          <h2 class="text-xl font-semibold mb-4 text-gray-800">
+            Step 2: Upload Incoming 940 File
+          </h2>
+          <div class="mb-4 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+            <p class="font-medium mb-1">Required Format:</p>
+            <p>Upload a CSV/Excel file with these columns: <span class="font-medium">Num, Ship Date, P. O. #, CANCEL DATE, Item, Qty, Ship To Address 1</span></p>
+            <p class="mt-1">This data will be used to populate customer, shipping, and order information in the final CSV.</p>
+          </div>
+          <div
+            v-if="!isProcessing && !isSecondCsvComplete"
+            class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors duration-200"
+            @dragover.prevent
+            @drop.prevent="handleSecondCsvDrop"
+          >
+            <input
+              type="file"
+              ref="secondCsvInput"
+              @change="handleSecondCsvSelect"
+              accept=".csv,.xlsx,.xls"
+              class="hidden"
+            />
+
+            <div class="mb-4">
+              <svg
+                class="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+
+            <div class="text-gray-600 mb-4">
+              <button
+                @click="$refs.secondCsvInput.click()"
                 class="text-blue-500 hover:text-blue-600 font-medium"
               >
                 Choose CSV/Excel
@@ -185,12 +192,12 @@
             <!-- Step-specific messages -->
             <div class="text-sm text-gray-500">
               <p v-if="currentStep === 1" class="mb-2">
-                <span class="font-medium">Current task:</span> Converting PDF
+                <span class="font-medium">Current task:</span> Processing first CSV
                 and extracting data
               </p>
               <p v-if="currentStep === 2" class="mb-2">
-                <span class="font-medium">Current task:</span> Mapping CSV data
-                with existing records
+                <span class="font-medium">Current task:</span> Processing second CSV
+                and merging data
               </p>
               <div class="mt-4 text-xs flex items-center justify-center">
                 <svg
@@ -210,27 +217,28 @@
           </div>
         </div>
 
-        <!-- Error State 
-            <div v-if="error" 
-                class="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50 animate-fade-in"
-                :class="[error.includes('success') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600']">
-                <div class="flex items-center">
-                    <svg v-if="!error.includes('success')" class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+        <!-- Error State -->
+        <div 
+            v-if="error" 
+            class="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50 animate-fade-in"
+            :class="[error.includes('success') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600']">
+            <div class="flex items-center">
+                <svg v-if="!error.includes('success')" class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                <svg v-else class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <p>{{ error }}</p>
+                <button @click="error = null" 
+                        :class="[error.includes('success') ? 'text-green-700 hover:text-green-800' : 'text-red-700 hover:text-red-800']"
+                        class="ml-4">
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
                     </svg>
-                    <svg v-else class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                    <p>{{ error }}</p>
-                    <button @click="error = null" 
-                            :class="[error.includes('success') ? 'text-green-700 hover:text-green-800' : 'text-red-700 hover:text-red-800']"
-                            class="ml-4">
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                        </svg>
-                    </button>
-                </div>
-            </div> -->
+                </button>
+            </div>
+        </div>
 
         <!-- Final Download Section -->
         <div
@@ -289,8 +297,8 @@
           return {
             currentStep: 1,
             isProcessing: false,
-            isPdfComplete: false,
-            isCsvComplete: false,
+            isFirstCsvComplete: false,
+            isSecondCsvComplete: false,
             isComplete: false,
             error: null,
             processingMessage: "",
@@ -304,36 +312,38 @@
           },
         },
         methods: {
-          handleFileSelect(event) {
+          handleFirstCsvSelect(event) {
             const file = event.target.files[0];
-            if (file) this.uploadPdf(file);
+            if (file) this.uploadFirstCsv(file);
           },
-          handleFileDrop(event) {
-            const file = event.dataTransfer.files[0];
-            if (file && file.type === "application/pdf") {
-              this.uploadPdf(file);
-            } else {
-              this.showError("Please upload a PDF file");
-            }
-          },
-          handleCsvSelect(event) {
-            const file = event.target.files[0];
-            if (file) this.uploadCsv(file);
-          },
-          handleCsvDrop(event) {
+          handleFirstCsvDrop(event) {
             const file = event.dataTransfer.files[0];
             const allowedExtensions = ["csv", "xlsx", "xls"];
             const fileExtension = file.name.split(".").pop().toLowerCase();
             if (allowedExtensions.includes(fileExtension)) {
-              this.uploadCsv(file);
+              this.uploadFirstCsv(file);
             } else {
               this.showError("Please upload a CSV or Excel file");
             }
           },
-          async uploadPdf(file) {
+          handleSecondCsvSelect(event) {
+            const file = event.target.files[0];
+            if (file) this.uploadSecondCsv(file);
+          },
+          handleSecondCsvDrop(event) {
+            const file = event.dataTransfer.files[0];
+            const allowedExtensions = ["csv", "xlsx", "xls"];
+            const fileExtension = file.name.split(".").pop().toLowerCase();
+            if (allowedExtensions.includes(fileExtension)) {
+              this.uploadSecondCsv(file);
+            } else {
+              this.showError("Please upload a CSV or Excel file");
+            }
+          },
+          async uploadFirstCsv(file) {
             this.startProgress();
             this.processingMessage =
-              "Analyzing PDF content and extracting shipping information...";
+              "Processing first CSV file...";
             this.isProcessing = true;
             this.error = null;
 
@@ -341,23 +351,31 @@
             formData.append("file", file);
 
             try {
-              await axios.post("/upload", formData);
+              await axios.post("/upload-first-csv", formData);
               this.progress = 100;
-              this.isPdfComplete = true;
+              this.isFirstCsvComplete = true;
+              
+              // Now require the second CSV to be uploaded before completion
+              this.isComplete = false;
+              
+              // Move to step 2
               this.currentStep = 2;
+              
+              // Show success message for step 1
+              this.showMessage("First CSV processed successfully! Please proceed to Step 2.");
             } catch (error) {
               this.showError(
-                error.response?.data?.error || "Error processing PDF"
+                error.response?.data?.error || "Error processing first CSV"
               );
             } finally {
               this.stopProgress();
               this.isProcessing = false;
             }
           },
-          async uploadCsv(file) {
+          async uploadSecondCsv(file) {
             this.startProgress();
             this.processingMessage =
-              "Mapping spreadsheet data to existing records...";
+              "Processing second CSV file and merging data...";
             this.isProcessing = true;
             this.error = null;
 
@@ -365,19 +383,19 @@
             formData.append("file", file);
 
             try {
-              const response = await axios.post("/upload-csv", formData);
+              const response = await axios.post("/upload-second-csv", formData);
               this.progress = 100;
-              this.isCsvComplete = true;
+              this.isSecondCsvComplete = true;
               this.isComplete = true;
 
-              // Optional: Show success message
-              this.showMessage("Data mapped successfully!");
+              // Show success message
+              this.showMessage("All data processed successfully! You can now download the result.");
               setTimeout(() => {
                 this.error = null;
               }, 3000);
             } catch (error) {
               const errorMsg =
-                error.response?.data?.error || "Error processing spreadsheet";
+                error.response?.data?.error || "Error processing second CSV";
               this.showError(errorMsg);
             } finally {
               this.stopProgress();
@@ -390,10 +408,15 @@
               this.error = null;
             }, 5000);
           },
+          showMessage(message) {
+            this.error = message + " success";
+            setTimeout(() => {
+              this.error = null;
+            }, 3000);
+          },
           downloadCSV() {
             window.location.href = "/download";
           },
-
           startProgress() {
             this.progress = 0;
             this.progressInterval = setInterval(() => {
@@ -404,7 +427,6 @@
               }
             }, 500);
           },
-
           stopProgress() {
             if (this.progressInterval) {
               clearInterval(this.progressInterval);
