@@ -12,7 +12,7 @@ else:
     POPPLER_PATH = None  # or '/usr/bin' if your code requires an explicit path
 
 # File Processing
-OUTPUT_CSV_NAME = "combined_data.csv"
+OUTPUT_CSV_NAME = "940IHL_processed.csv"
 
 # Models
 OPENAI_MODEL = "o3-mini"
