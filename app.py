@@ -519,12 +519,13 @@ def process_second_csv(file_path, session_dir):
                 dimension = (length * width * height) / 1728 if (length > 0 and width > 0 and height > 0) else 0
                 output_df.iloc[output_row, 29] = f"{dimension:.2f}"
                 
-                # Calculate cube in cft = individual carton weight / 1728 + 0.3
-                cube_in_cft = (individual_weight / 1728) + 0.3
+                # Calculate cube in cft = cube in cm / 1728 + 0.3
+                cube_in_cm = safe_float(item_data_match["cube"])
+                cube_in_cft = (cube_in_cm / 1728) + 0.3
                 output_df.iloc[output_row, 30] = f"{cube_in_cft:.2f}"
                 
-                # Calculate total cubes = dimension * Cartons
-                total_cubes = dimension * cartons
+                # Calculate total cubes = cube in cft * CARTONS (using rounded up value)
+                total_cubes = cube_in_cft * cartons_rounded
                 output_df.iloc[output_row, 31] = f"{total_cubes:.2f}"
                 
                 # Calculate PALLET = ceil(total_cubes / 65)
@@ -536,8 +537,8 @@ def process_second_csv(file_path, session_dir):
                 final_cube = pallets * 130
                 output_df.iloc[output_row, 33] = str(final_cube)
                 
-                # Calculate TOTAL WEIGHT = individual_weight * CARTONS + 40 (for pallet)
-                total_weight = (individual_weight * cartons_rounded) + 40
+                # Calculate TOTAL WEIGHT = (Cartons * individual carton weight) + (PALLET * 40)
+                total_weight = (cartons * individual_weight) + (pallets * 40)
                 output_df.iloc[output_row, 34] = f"{total_weight:.2f}"
                 
             else:
