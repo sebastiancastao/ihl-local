@@ -5,6 +5,7 @@ from pathlib import Path
 import platform
 import pandas as pd
 import re
+import shutil
 from difflib import get_close_matches
 from io import StringIO
 from flask import Flask, render_template, request, send_file, jsonify, session
@@ -22,6 +23,14 @@ app.secret_key = 'your-secret-key-here'  # Required for session management
 
 # Allowed extensions for CSV/XLSX upload
 ALLOWED_CSV_EXTENSIONS = {'csv', 'xlsx', 'xls'}
+
+# Path for the master UOM file
+MASTER_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "master_data")
+MASTER_UOM_FILE = os.path.join(MASTER_DATA_DIR, "master_uom.csv")
+
+# Ensure master data directory exists
+if not os.path.exists(MASTER_DATA_DIR):
+    os.makedirs(MASTER_DATA_DIR)
 
 def allowed_file(filename, allowed_set):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_set
@@ -245,25 +254,30 @@ def process_second_csv(file_path, session_dir):
         if missing_columns:
             return False, f"Missing columns in second CSV: {', '.join(missing_columns)}"
         
-        # Get path to the original first CSV file (not the processed output)
-        # We need to read this to get the original Item # data
-        first_csv_files = [f for f in os.listdir(session_dir) if f.endswith(('.csv', '.xlsx', '.xls')) 
-                          and f != OUTPUT_CSV_NAME]
+        # Check if we have a master UOM file to use
+        if os.path.exists(MASTER_UOM_FILE):
+            first_csv_original_path = MASTER_UOM_FILE
+            print(f"Using master UOM file: {MASTER_UOM_FILE}")
+        else:
+            # If no master file exists, look for an uploaded one
+            first_csv_files = [f for f in os.listdir(session_dir) if f.endswith(('.csv', '.xlsx', '.xls')) 
+                              and f != OUTPUT_CSV_NAME]
+            
+            if not first_csv_files:
+                return False, "No UOM file found. Please upload a UOM file first or contact an administrator to set up the master UOM file."
+            
+            # Use the first file found as the first CSV
+            first_csv_original_path = os.path.join(session_dir, first_csv_files[0])
+            print(f"Using uploaded UOM file: {first_csv_original_path}")
         
-        if not first_csv_files:
-            return False, "Original first CSV file not found in session directory."
-        
-        # Use the first file found as the first CSV
-        first_csv_original_path = os.path.join(session_dir, first_csv_files[0])
-        
-        # Read the original first CSV file
+        # Read the UOM file (either master or uploaded)
         ext = os.path.splitext(first_csv_original_path)[1].lower()
         if ext == ".csv":
             first_df_original = pd.read_csv(first_csv_original_path, dtype=str)
         elif ext in [".xlsx", ".xls"]:
             first_df_original = pd.read_excel(first_csv_original_path, dtype=str)
         else:
-            return False, "Unsupported first CSV file extension"
+            return False, "Unsupported UOM file extension"
         
         # Try to find matching columns for required fields in first CSV
         required_columns_first = ["Item #", "Weight", "Cube", "Length", "Width", "Height"]
@@ -281,7 +295,7 @@ def process_second_csv(file_path, session_dir):
                 print(f"Could not match column in first CSV: {col}")
         
         if missing_columns_first:
-            return False, f"Missing columns in first CSV file: {', '.join(missing_columns_first)}"
+            return False, f"Missing columns in UOM file: {', '.join(missing_columns_first)}"
         
         # Debug: Print first few rows of both dataframes to compare formats
         print("First CSV 'Item #' column (first 5 rows):")
@@ -622,7 +636,11 @@ def get_or_create_session():
 def index():
     # Get or create session without cleaning up existing valid sessions
     get_or_create_session()
-    return render_template('index.html')
+    
+    # Check if master UOM file exists to determine if we should show Step 1
+    master_file_exists = os.path.exists(MASTER_UOM_FILE)
+    
+    return render_template('index.html', master_file_exists=master_file_exists)
 
 @app.route('/process', methods=['POST'])
 def process():
@@ -698,11 +716,11 @@ def upload_second_csv():
         file_path = os.path.join(session_dir, filename)
         file.save(file_path)
         
-        # Process the second CSV file
+        # Process the second CSV file - this will now use the master UOM file if available
         success, message = process_second_csv(file_path, session_dir)
         
         if success:
-            return jsonify({"status": "success", "message": "Second CSV processed successfully"})
+            return jsonify({"status": "success", "message": message})
         else:
             return jsonify({"error": message}), 500
     else:
@@ -725,6 +743,78 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
     return response
+
+# Add new admin routes for managing the master UOM file
+@app.route('/admin/upload-master-uom', methods=['POST'])
+def upload_master_uom():
+    """Admin endpoint to upload and update the master UOM file"""
     
+    # Check if the post request has the file part
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+        
+    file = request.files['file']
+    
+    # If user does not select file, browser submits an empty file without filename
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+        
+    if file and allowed_file(file.filename, ALLOWED_CSV_EXTENSIONS):
+        # Backup the existing master file if it exists
+        if os.path.exists(MASTER_UOM_FILE):
+            backup_file = f"{MASTER_UOM_FILE}.bak"
+            shutil.copy2(MASTER_UOM_FILE, backup_file)
+            
+        # Save the new master file
+        file.save(MASTER_UOM_FILE)
+        
+        # Verify the file can be read and has the required columns
+        try:
+            ext = os.path.splitext(MASTER_UOM_FILE)[1].lower()
+            if ext == ".csv":
+                df = pd.read_csv(MASTER_UOM_FILE, dtype=str)
+            elif ext in [".xlsx", ".xls"]:
+                df = pd.read_excel(MASTER_UOM_FILE, dtype=str)
+                
+            required_columns = ["Item #", "Weight", "Cube", "Length", "Width", "Height"]
+            missing_columns = []
+            
+            for col in required_columns:
+                try:
+                    matched_col = find_matching_column(df, col, required=True)
+                except ValueError:
+                    missing_columns.append(col)
+            
+            if missing_columns:
+                # Restore from backup if validation fails
+                if os.path.exists(f"{MASTER_UOM_FILE}.bak"):
+                    shutil.copy2(f"{MASTER_UOM_FILE}.bak", MASTER_UOM_FILE)
+                return jsonify({"error": f"Uploaded file is missing required columns: {', '.join(missing_columns)}"}), 400
+                
+            return jsonify({"status": "success", "message": "Master UOM file updated successfully"})
+            
+        except Exception as e:
+            # Restore from backup if validation fails
+            if os.path.exists(f"{MASTER_UOM_FILE}.bak"):
+                shutil.copy2(f"{MASTER_UOM_FILE}.bak", MASTER_UOM_FILE)
+            return jsonify({"error": f"Error validating uploaded file: {str(e)}"}), 500
+    else:
+        return jsonify({"error": "Invalid file type. Please upload a CSV or Excel file."}), 400
+
+@app.route('/admin/download-master-uom')
+def download_master_uom():
+    """Admin endpoint to download the current master UOM file"""
+    if os.path.exists(MASTER_UOM_FILE):
+        return send_file(MASTER_UOM_FILE, as_attachment=True, download_name="master_uom.csv")
+    else:
+        return jsonify({"error": "Master UOM file not found. Please upload one first."}), 404
+
+@app.route('/admin')
+def admin_page():
+    """Admin page for managing the master UOM file"""
+    # Check if master UOM file exists
+    master_file_exists = os.path.exists(MASTER_UOM_FILE)
+    return render_template('admin.html', master_file_exists=master_file_exists)
+
 if __name__ == "__main__":
     app.run(debug=True)

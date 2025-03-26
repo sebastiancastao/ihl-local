@@ -9,155 +9,141 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   </head>
   <body class="bg-gray-100 min-h-screen">
-    <div id="app" class="container mx-auto px-4 py-8">
+    <!-- Pass server variables as data attributes -->
+    <div id="app" class="container mx-auto px-4 py-8" data-master-file-exists="{{ 'true' if master_file_exists else 'false' }}">
       <div class="max-w-3xl mx-auto">
         <!-- Header -->
         <div class="text-center mb-8">
           <h1 class="text-3xl font-bold text-gray-900 mb-2">IHL Template Processor</h1>
           <p class="text-gray-600 mb-6">
-            Follow the steps below to process your documents
+            Upload your incoming 940 file to generate the template
           </p>
+          
+          <!-- Admin Dashboard Link -->
+          <div class="flex justify-center items-center mb-2">
+            <a href="/admin" class="text-sm text-gray-500 hover:text-blue-600 flex items-center transition-colors duration-200">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Admin Dashboard
+            </a>
+          </div>
+          
+          <!-- Master UOM File Status -->
+          <div class="mb-4 flex justify-center">
+            <div v-if="masterFileExists" class="px-3 py-1 rounded-full text-xs bg-green-100 text-green-800 flex items-center">
+              <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+              Master UOM file is active
+            </div>
+            <div v-else class="px-3 py-1 rounded-full text-xs bg-red-100 text-red-800 flex items-center">
+              <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+              </svg>
+              No master UOM file: ‎    <a href="/admin" class="underline font-medium hover:text-red-900">Set up in Admin Dashboard</a>
+            </div>
+          </div>
 
-          <!-- Stepper -->
-          <div class="flex justify-center items-center space-x-4 mb-8">
+          <!-- Stepper - Only show if master file exists -->
+          <div v-if="masterFileExists" class="flex justify-center items-center space-x-4 mb-8">
             <div class="flex items-center">
               <div
                 class="w-10 h-10 rounded-full flex items-center justify-center border-2"
-                :class="[currentStep === 1 ? 'border-blue-500 bg-blue-50 text-blue-500' : isFirstCsvComplete ? 'border-green-500 bg-green-50 text-green-500' : 'border-gray-300 text-gray-500']"
+                :class="[currentStep === 1 ? 'border-blue-500 bg-blue-50 text-blue-500' : isSecondCsvComplete ? 'border-green-500 bg-green-50 text-green-500' : 'border-gray-300 text-gray-500']"
               >
                 <span class="text-lg font-semibold">1</span>
               </div>
               <span
                 class="ml-2 font-medium"
-                :class="[currentStep === 1 ? 'text-blue-500' : isFirstCsvComplete ? 'text-green-500' : 'text-gray-500']"
-                >CSV 1</span
+                :class="[currentStep === 1 ? 'text-blue-500' : isSecondCsvComplete ? 'text-green-500' : 'text-gray-500']"
+                >Incoming 940</span
               >
+            </div>
+          </div>
+
+          <!-- Admin Setup Required Message - Show when no master file exists -->
+          <div
+            v-if="!masterFileExists"
+            class="bg-amber-50 border-l-4 border-amber-500 p-6 mb-6 rounded-md"
+          >
+            <div class="flex items-start">
+              <div class="flex-shrink-0">
+                <svg class="h-6 w-6 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <h3 class="text-lg font-medium text-amber-800">Admin Setup Required</h3>
+                <div class="mt-2 text-amber-700">
+                  <p>Before processing files, you need to set up a master UOM file in the admin dashboard.</p>
+                  <p class="mt-2">This is a one-time setup that allows the system to match item codes with their specifications.</p>
+                  <a href="/admin" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Go to Admin Dashboard
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: CSV Upload (Only show when master file exists) -->
+          <div
+            v-if="masterFileExists"
+            v-show="currentStep === 1 || currentStep === 2"
+            class="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300"
+          >
+            <h2 class="text-xl font-semibold mb-4 text-gray-800">
+              Upload Incoming 940 File
+            </h2>
+            <div class="mb-4 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+              <p class="font-medium mb-1">Required Format:</p>
+              <p>Upload a CSV/Excel file with these columns: <span class="font-medium">Num, Ship Date, P. O. #, CANCEL DATE, Item, Qty, Ship To Address 1</span></p>
+              <p class="mt-1">This data will be used to populate customer, shipping, and order information in the final CSV.</p>
             </div>
             <div
-              class="w-24 h-0.5"
-              :class="[isFirstCsvComplete ? 'bg-green-500' : 'bg-gray-300']"
-            ></div>
-            <div class="flex items-center">
-              <div
-                class="w-10 h-10 rounded-full flex items-center justify-center border-2"
-                :class="[currentStep === 2 ? 'border-blue-500 bg-blue-50 text-blue-500' : isSecondCsvComplete ? 'border-green-500 bg-green-50 text-green-500' : 'border-gray-300 text-gray-500']"
-              >
-                <span class="text-lg font-semibold">2</span>
+              v-if="!isProcessing && !isSecondCsvComplete"
+              class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors duration-200"
+              @dragover.prevent
+              @drop.prevent="handleSecondCsvDrop"
+            >
+              <input
+                type="file"
+                ref="secondCsvInput"
+                @change="handleSecondCsvSelect"
+                accept=".csv,.xlsx,.xls"
+                class="hidden"
+              />
+
+              <div class="mb-4">
+                <svg
+                  class="mx-auto h-12 w-12 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
               </div>
-              <span
-                class="ml-2 font-medium"
-                :class="[currentStep === 2 ? 'text-blue-500' : isSecondCsvComplete ? 'text-green-500' : 'text-gray-500']"
-                >CSV 2</span
-              >
-            </div>
-          </div>
-        </div>
 
-        <!-- Step 1: First CSV Upload -->
-        <div
-          v-show="currentStep === 1"
-          class="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300"
-        >
-          <h2 class="text-xl font-semibold mb-4 text-gray-800">
-            Step 1: Upload Sensual UOM Excel
-          </h2>
-          <div class="mb-4 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-            <p class="font-medium mb-1">Required Format:</p>
-            <p>Upload a CSV/Excel file with these columns: <span class="font-medium">Item #, Weight, Cube, Length, Width, Height</span></p>
-          </div>
-          <div
-            v-if="!isProcessing && !isFirstCsvComplete"
-            class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors duration-200"
-            @dragover.prevent
-            @drop.prevent="handleFirstCsvDrop"
-          >
-            <input
-              type="file"
-              ref="firstCsvInput"
-              @change="handleFirstCsvSelect"
-              accept=".csv,.xlsx,.xls"
-              class="hidden"
-            />
-
-            <div class="mb-4">
-              <svg
-                class="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-
-            <div class="text-gray-600 mb-4">
-              <button
-                @click="$refs.firstCsvInput.click()"
-                class="text-blue-500 hover:text-blue-600 font-medium"
-              >
-                Choose CSV/Excel
-              </button>
-              or drag and drop
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 2: Second CSV Upload -->
-        <div
-          v-show="currentStep === 2"
-          class="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300"
-        >
-          <h2 class="text-xl font-semibold mb-4 text-gray-800">
-            Step 2: Upload Incoming 940 File
-          </h2>
-          <div class="mb-4 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-            <p class="font-medium mb-1">Required Format:</p>
-            <p>Upload a CSV/Excel file with these columns: <span class="font-medium">Num, Ship Date, P. O. #, CANCEL DATE, Item, Qty, Ship To Address 1</span></p>
-            <p class="mt-1">This data will be used to populate customer, shipping, and order information in the final CSV.</p>
-          </div>
-          <div
-            v-if="!isProcessing && !isSecondCsvComplete"
-            class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors duration-200"
-            @dragover.prevent
-            @drop.prevent="handleSecondCsvDrop"
-          >
-            <input
-              type="file"
-              ref="secondCsvInput"
-              @change="handleSecondCsvSelect"
-              accept=".csv,.xlsx,.xls"
-              class="hidden"
-            />
-
-            <div class="mb-4">
-              <svg
-                class="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-
-            <div class="text-gray-600 mb-4">
-              <button
-                @click="$refs.secondCsvInput.click()"
-                class="text-blue-500 hover:text-blue-600 font-medium"
-              >
-                Choose CSV/Excel
-              </button>
-              or drag and drop
+              <div class="text-gray-600 mb-4">
+                <button
+                  @click="$refs.secondCsvInput.click()"
+                  class="text-blue-500 hover:text-blue-600 font-medium"
+                >
+                  Choose CSV/Excel
+                </button>
+                or drag and drop
+              </div>
             </div>
           </div>
         </div>
@@ -294,6 +280,10 @@
 
       createApp({
         data() {
+          // Get master file exists from data attribute
+          const appElement = document.getElementById('app');
+          const masterFileExists = appElement.dataset.masterFileExists === 'true';
+          
           return {
             currentStep: 1,
             isProcessing: false,
@@ -304,7 +294,16 @@
             processingMessage: "",
             progress: 0,
             progressInterval: null,
+            masterFileExists: masterFileExists
           };
+        },
+        mounted() {
+          // If master file exists, mark Step 1 as complete and user can proceed
+          if (this.masterFileExists) {
+            this.isFirstCsvComplete = true;
+            // No need to change currentStep, it's already 1 by default
+          }
+          // If no master file exists, we don't change any state - the UI will show admin setup required
         },
         computed: {
           roundedProgress() {
