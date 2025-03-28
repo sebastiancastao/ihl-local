@@ -19,6 +19,7 @@ app.config['UPLOAD_FOLDER'] = os.path.dirname(os.path.abspath(__file__))
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Allow cookie in iframe
 app.config['SESSION_COOKIE_SECURE'] = True  # Required for SameSite=None
+app.config['SESSION_COOKIE_HTTPONLY'] = False  # Allow JavaScript access to cookie
 app.secret_key = 'your-secret-key-here'  # Required for session management
 
 # Allowed extensions for CSV/XLSX upload
@@ -733,20 +734,57 @@ def upload_second_csv():
 
 @app.route('/download')
 def download_file():
-    # Get existing session directory
+    # First try with the current session directory
     session_dir = get_or_create_session()
     
     file_path = os.path.join(session_dir, OUTPUT_CSV_NAME)
     if os.path.exists(file_path):
         return send_file(file_path, as_attachment=True, download_name=OUTPUT_CSV_NAME)
-    else:
-        return jsonify({"error": "File not found. Please process your data first."}), 404
+    
+    # If not found, look in all recent session directories (within the last hour)
+    # This is a fallback for iframe issues where session might be lost
+    session_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processing_sessions")
+    if os.path.exists(session_root):
+        # Check for processed files in recent sessions
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        one_hour_ago = now - timedelta(hours=1)
+        
+        # Sort directories by creation time, newest first
+        session_dirs = []
+        for item in os.listdir(session_root):
+            item_path = os.path.join(session_root, item)
+            if os.path.isdir(item_path):
+                created_time = datetime.fromtimestamp(os.path.getctime(item_path))
+                if now - created_time < timedelta(hours=1):  # Only check recent sessions
+                    session_dirs.append((item_path, created_time))
+        
+        # Sort by creation time, newest first
+        session_dirs.sort(key=lambda x: x[1], reverse=True)
+        
+        # Check each session directory for the output file
+        for session_dir_path, _ in session_dirs:
+            check_file = os.path.join(session_dir_path, OUTPUT_CSV_NAME)
+            if os.path.exists(check_file):
+                print(f"Found file in alternate session directory: {session_dir_path}")
+                return send_file(check_file, as_attachment=True, download_name=OUTPUT_CSV_NAME)
+    
+    # If still not found, return error
+    return jsonify({"error": "File not found. Please process your data first."}), 404
 
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
+    # Get the request origin
+    origin = request.headers.get('Origin', '*')
+    
+    # Allow the specific origin that made the request instead of wildcard
+    response.headers.add('Access-Control-Allow-Origin', origin)
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    
+    # Vary the response based on the Origin header
+    response.headers.add('Vary', 'Origin')
     return response
 
 # Add new admin routes for managing the master UOM file
