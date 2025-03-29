@@ -13,12 +13,13 @@ from werkzeug.utils import secure_filename
 from data_processor import DataProcessor
 from csv_exporter import CSVExporter
 from config import OUTPUT_CSV_NAME  # e.g. "combined_data.csv"
-#test commit
+#test commit2
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.path.dirname(os.path.abspath(__file__))
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Allow cookie in iframe
 app.config['SESSION_COOKIE_SECURE'] = True  # Required for SameSite=None
+app.config['SESSION_COOKIE_HTTPONLY'] = False  # Allow JavaScript access to cookie
 app.secret_key = 'your-secret-key-here'  # Required for session management
 
 # Allowed extensions for CSV/XLSX upload
@@ -112,7 +113,7 @@ def process_first_csv(file_path, session_dir):
     - Column AI (34) = "TOTAL WEIGHT"
     """
     try:
-        # Read input file as DataFrame with all columns as strings
+        # Read the CSV or Excel file
         ext = os.path.splitext(file_path)[1].lower()
         if ext == ".csv":
             input_df = pd.read_csv(file_path, dtype=str)
@@ -121,8 +122,8 @@ def process_first_csv(file_path, session_dir):
         else:
             return False, "Unsupported file extension"
         
-        # Try to find matching columns for required fields
-        required_columns = ["Item #", "Weight", "Cube", "Length", "Width", "Height"]
+        # Find column mappings - make best guess at matching columns based on names
+        required_columns = ["Item #", "Weight", "Cube", "Length", "Width", "Height", "Sequence 10: QTY"]
         column_mappings = {}
         missing_columns = []
         
@@ -178,7 +179,10 @@ def process_first_csv(file_path, session_dir):
             item_id = input_df.iloc[i][column_mappings["Item #"]]
             
             # Set the UOM value to "10" for all rows - shifted to correct column
-            output_df.iloc[output_row, 20] = "10"  # UOM is always "10"
+            if "Sequence 10: QTY" in column_mappings:
+                output_df.iloc[output_row, 20] = input_df.iloc[i][column_mappings["Sequence 10: QTY"]]  # Use the QTY column
+            else:
+                output_df.iloc[output_row, 20] = "10"  # Default to 10 if column not found
             
             # Copy basic values from input to output - shifted to correct columns
             output_df.iloc[output_row, 23] = input_df.iloc[i][column_mappings["Weight"]]     # weight w/out add
@@ -280,7 +284,7 @@ def process_second_csv(file_path, session_dir):
             return False, "Unsupported UOM file extension"
         
         # Try to find matching columns for required fields in first CSV
-        required_columns_first = ["Item #", "Weight", "Cube", "Length", "Width", "Height"]
+        required_columns_first = ["Item #", "Weight", "Cube", "Length", "Width", "Height", "Sequence 10: QTY"]
         first_csv_column_mappings = {}
         missing_columns_first = []
         
@@ -350,7 +354,8 @@ def process_second_csv(file_path, session_dir):
                     "cube": row[first_csv_column_mappings["Cube"]],         # Using original Cube column
                     "length": row[first_csv_column_mappings["Length"]],     # Using original Length column
                     "width": row[first_csv_column_mappings["Width"]],       # Using original Width column
-                    "height": row[first_csv_column_mappings["Height"]]      # Using original Height column
+                    "height": row[first_csv_column_mappings["Height"]],     # Using original Height column
+                    "qty": row[first_csv_column_mappings["Sequence 10: QTY"]] if "Sequence 10: QTY" in first_csv_column_mappings else "10"  # Use QTY from master or default to 10
                 }
                 item_data_raw_keys[item_id] = normalized_id  # Store mapping for debugging
         
@@ -478,7 +483,7 @@ def process_second_csv(file_path, session_dir):
             output_df.iloc[output_row, 19] = row[column_mappings["Qty"]]   # TOTAL PIECES
             
             # Set UOM to "10" for all rows
-            output_df.iloc[output_row, 20] = "10"
+            output_df.iloc[output_row, 20] = "10"  # Default value if no match found
             
             # Debug print for Qty values
             if i < 5:  # Print first 5 rows for debugging
@@ -499,6 +504,7 @@ def process_second_csv(file_path, session_dir):
                     partial_matches += 1
                     
                 # Use the matched item data
+                output_df.iloc[output_row, 20] = item_data_match["qty"]     # UOM from Sequence 10: QTY column
                 output_df.iloc[output_row, 23] = item_data_match["weight"]     # weight w/out add (from Weight)
                 output_df.iloc[output_row, 25] = item_data_match["cube"]       # cube in cm (from Cube)
                 output_df.iloc[output_row, 26] = item_data_match["length"]     # Length
@@ -728,20 +734,57 @@ def upload_second_csv():
 
 @app.route('/download')
 def download_file():
-    # Get existing session directory
+    # First try with the current session directory
     session_dir = get_or_create_session()
     
     file_path = os.path.join(session_dir, OUTPUT_CSV_NAME)
     if os.path.exists(file_path):
         return send_file(file_path, as_attachment=True, download_name=OUTPUT_CSV_NAME)
-    else:
-        return jsonify({"error": "File not found. Please process your data first."}), 404
+    
+    # If not found, look in all recent session directories (within the last hour)
+    # This is a fallback for iframe issues where session might be lost
+    session_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processing_sessions")
+    if os.path.exists(session_root):
+        # Check for processed files in recent sessions
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        one_hour_ago = now - timedelta(hours=1)
+        
+        # Sort directories by creation time, newest first
+        session_dirs = []
+        for item in os.listdir(session_root):
+            item_path = os.path.join(session_root, item)
+            if os.path.isdir(item_path):
+                created_time = datetime.fromtimestamp(os.path.getctime(item_path))
+                if now - created_time < timedelta(hours=1):  # Only check recent sessions
+                    session_dirs.append((item_path, created_time))
+        
+        # Sort by creation time, newest first
+        session_dirs.sort(key=lambda x: x[1], reverse=True)
+        
+        # Check each session directory for the output file
+        for session_dir_path, _ in session_dirs:
+            check_file = os.path.join(session_dir_path, OUTPUT_CSV_NAME)
+            if os.path.exists(check_file):
+                print(f"Found file in alternate session directory: {session_dir_path}")
+                return send_file(check_file, as_attachment=True, download_name=OUTPUT_CSV_NAME)
+    
+    # If still not found, return error
+    return jsonify({"error": "File not found. Please process your data first."}), 404
 
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
+    # Get the request origin
+    origin = request.headers.get('Origin', '*')
+    
+    # Allow the specific origin that made the request instead of wildcard
+    response.headers.add('Access-Control-Allow-Origin', origin)
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    
+    # Vary the response based on the Origin header
+    response.headers.add('Vary', 'Origin')
     return response
 
 # Add new admin routes for managing the master UOM file
