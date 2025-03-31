@@ -178,11 +178,11 @@ def process_first_csv(file_path, session_dir):
             output_row = i + 1
             item_id = input_df.iloc[i][column_mappings["Item #"]]
             
-            # Set the UOM value to "10" for all rows - shifted to correct column
+            # Set the UOM value to "" for all rows - shifted to correct column
             if "Sequence 10: QTY" in column_mappings:
                 output_df.iloc[output_row, 20] = input_df.iloc[i][column_mappings["Sequence 10: QTY"]]  # Use the QTY column
             else:
-                output_df.iloc[output_row, 20] = "10"  # Default to 10 if column not found
+                output_df.iloc[output_row, 20] = ""  # Default to empty string if column not found
             
             # Copy basic values from input to output - shifted to correct columns
             output_df.iloc[output_row, 23] = input_df.iloc[i][column_mappings["Weight"]]     # weight w/out add
@@ -482,8 +482,8 @@ def process_second_csv(file_path, session_dir):
             output_df.iloc[output_row, 17] = row[column_mappings["Num"]]   # INVOICE #
             output_df.iloc[output_row, 19] = row[column_mappings["Qty"]]   # TOTAL PIECES
             
-            # Set UOM to "10" for all rows
-            output_df.iloc[output_row, 20] = "10"  # Default value if no match found
+            # Set UOM to "" for all rows (empty string instead of "10")
+            output_df.iloc[output_row, 20] = ""  # Default value if no match found
             
             # Debug print for Qty values
             if i < 5:  # Print first 5 rows for debugging
