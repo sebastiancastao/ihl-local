@@ -557,8 +557,8 @@ def process_second_csv(file_path, session_dir):
                 final_cube = pallets * 130
                 output_df.iloc[output_row, 33] = str(final_cube)
                 
-                # Calculate TOTAL WEIGHT = (Cartons * individual carton weight) + (PALLET * 40)
-                total_weight = (cartons * individual_weight) + (pallets * 40)
+                # Calculate TOTAL WEIGHT = (CARTONS * individual carton weight) + (PALLET * 40)
+                total_weight = (cartons_rounded * individual_weight) + (pallets * 40)
                 output_df.iloc[output_row, 34] = f"{total_weight:.2f}"
                 
             else:
